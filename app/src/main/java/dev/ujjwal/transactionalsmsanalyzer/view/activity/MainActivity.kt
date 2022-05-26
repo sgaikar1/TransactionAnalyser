@@ -44,7 +44,12 @@ class MainActivity : AppCompatActivity() {
         "available balance",
         "a/c bal",
         "available bal",
-        "avl bal"
+        "avl bal",
+        "new balance",
+        "new bal",
+        "current balance",
+        "current bal"
+
     )
 
     fun getBalance(msg: String):String {
@@ -56,14 +61,15 @@ class MainActivity : AppCompatActivity() {
         var indexOfKeyword = -1;
         var balance = "";
 
-        balanceKeywords.map { word ->
+        balanceKeywords.takeWhile { word ->
             indexOfKeyword = message.toLowerCase().indexOf(word);
             if (indexOfKeyword > -1) {
                 indexOfKeyword += word.length;
-                return@map
+                return@takeWhile false;
             }
-
+            return@takeWhile true;
         }
+
         if(indexOfKeyword<0){
             return ""
         }
