@@ -1,11 +1,18 @@
 package dev.ujjwal.transactionalsmsanalyzer.view.activity
 
 import android.Manifest
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.media.RingtoneManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -16,6 +23,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import dev.ujjwal.transactionalsmsanalyzer.R
 import dev.ujjwal.transactionalsmsanalyzer.model.SMSDetail
@@ -25,6 +33,7 @@ import dev.ujjwal.transactionalsmsanalyzer.util.getCreditStatus
 import dev.ujjwal.transactionalsmsanalyzer.util.gotoChatActivity
 import dev.ujjwal.transactionalsmsanalyzer.view.adapter.SmsListAdapter
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.*
 import java.util.regex.Pattern
 
 
@@ -216,12 +225,52 @@ class MainActivity : AppCompatActivity() {
                 filter(s.toString().trim())
             }
         })
+        showNotification()
     }
 
     private fun checkPermission() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_SMS), MY_PERMISSIONS_REQUEST_READ_SMS)
         }
+    }
+
+    private fun showNotification(){
+        // Create an explicit intent for an Activity in your app
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+
+        val notificationId = (Date().time / 1000L % Int.MAX_VALUE).toInt()
+        val notification = NotificationCompat.Builder(applicationContext, "notify_001")
+            .setAutoCancel(false)
+//            .setOngoing(true)
+            .setContentTitle("SMS")
+            .setContentText("This is the content text.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("This is the content Big text."))
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+            .setDefaults(Notification.DEFAULT_VIBRATE)
+            .setContentIntent(pendingIntent)
+            .setSmallIcon(R.mipmap.ic_launcher)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channelId = "Your_channel_id"
+            val channel = NotificationChannel(
+                channelId,
+                "Channel human readable title",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            notificationManager.createNotificationChannel(channel)
+            notification.setChannelId(channelId)
+        }
+
+
+        notificationManager.notify(notificationId, notification.build())
+//        with(NotificationManagerCompat.from(this)) {
+//            // notificationId is a unique int for each notification that you must define
+//            notify(notificationId, notification)
+//        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
