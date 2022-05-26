@@ -40,7 +40,7 @@ class SmsListAdapter(private val context: Context, private var smses: ArrayList<
         private val tvSmsTime = view.tv_sms_time
 
         fun bind(sms: SMSDetail, context: Context, position: Int) {
-            tvSmsTag.text = sms.tag?.toUpperCase()
+            tvSmsTag.text = sms.balance//?.toUpperCase()
             tvSmsSender.text = sms.sender
             tvSmsBody.text = "${sms.body}"
             tvSmsTime.text = "\n${Date(sms.date!!.toLong())}"

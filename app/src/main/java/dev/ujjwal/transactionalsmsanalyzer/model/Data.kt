@@ -10,5 +10,6 @@ data class SMSDetail(
 
     var isCredited: Boolean? = null,
     var amount: String? = null,
-    var tag: String? = null
+    var tag: String? = null,
+    var balance: String? = null
 )

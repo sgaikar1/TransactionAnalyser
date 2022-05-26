@@ -39,6 +39,140 @@ class MainActivity : AppCompatActivity() {
 
     private val smsListAdapter = SmsListAdapter(this, arrayListOf())
 
+    val balanceKeywords = arrayOf(
+        "avbl bal",
+        "available balance",
+        "a/c bal",
+        "available bal",
+        "avl bal"
+    )
+
+    fun getBalance(msg: String):String {
+        if (msg.isNullOrEmpty()) {
+            return ""
+        }
+
+        val message = processMessage(msg).plus(' ');
+        var indexOfKeyword = -1;
+        var balance = "";
+
+        balanceKeywords.map { word ->
+            indexOfKeyword = message.toLowerCase().indexOf(word);
+            if (indexOfKeyword > -1) {
+                indexOfKeyword += word.length;
+                return@map
+            }
+
+        }
+        if(indexOfKeyword<0){
+            return ""
+        }
+        // found the index of keyword, moving on to finding 'rs.' occuring after index_of_keyword
+        var index = indexOfKeyword;
+        var indexOfRs = -1;
+        var nextThreeChars = message.toLowerCase().substring(index, index.plus(3));
+
+        index += 3;
+
+        while (index < message.length) {
+            // discard first char
+            nextThreeChars = nextThreeChars.substring(1);
+            // add the current char at the end
+            nextThreeChars += message[index];
+
+            if (nextThreeChars.equals("rs.", true)) {
+                indexOfRs = index + 1;
+                break;
+            }
+
+            ++index;
+        }
+
+        // no occurence of 'rs.'
+        if (indexOfRs == -1) {
+            return "";
+        }
+
+        balance = extractBalance(indexOfRs, message, message.length);
+
+        return balance;
+    }
+
+
+
+    fun processMessage(msg: String): String {
+        // convert to lower case
+        var message = msg.toLowerCase()
+        // remove '-'
+        message = message.replace("-", "");
+        // remove ':'
+        message = message.replace(":", " ");
+        // remove '/'
+        message = message.replace("/", "");
+        // remove 'ending'
+        message = message.replace("ending", "");
+        // replace 'x'
+        message = message.replace("x", "");
+        // replace 'is'
+        message = message.replace("is", "");
+        // replace 'with'
+        message = message.replace("with", "");
+        // remove 'no.'
+        message = message.replace("no. ", "");
+        // replace acct with ac
+        message = message.replace("acc", "ac");
+        // replace account with ac
+        message = message.replace("account", "ac");
+        // replace all 'rs ' with 'rs. '
+        message = message.replace("rs ", "rs. ");
+        // replace all inr with rs.
+        message = message.replace("inr", "rs. ");
+        //
+        message = message.replace("inr ", "rs. ");
+        // replace all 'rs. ' with 'rs.'
+        message = message.replace("rs. ", "rs.");
+        // replace all 'rs.' with 'rs. '
+        message = message.replace("rs.", "rs. ");
+        // split message into words
+        message.split(' ');
+        // remove '' from array
+        return message;
+    }
+
+    private fun extractBalance(index: Int, message: String, length: Int): String {
+        var balance = "";
+        var digitFound = false;
+        var invalidCharCount = 0;
+        var char = ' ';
+        var indexOfAmount = index;
+        while (indexOfAmount < length) {
+            char = message[indexOfAmount]
+
+            if (char.isDigit()) {
+                digitFound = true;
+                // is_start = false;
+                balance += char;
+            } else {
+                if (!digitFound) {
+                } else {
+                    if (char == '.') {
+                        if (invalidCharCount == 1) {
+                            break;
+                        } else {
+                            balance += char;
+                            invalidCharCount += 1;
+                        }
+                    } else if (char != ',') {
+                        break;
+                    }
+                }
+            }
+            indexOfAmount += 1;
+        };
+
+        return balance;
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -129,6 +263,7 @@ class MainActivity : AppCompatActivity() {
                 smsDetail.isCredited = getCreditStatus(body)
                 smsDetail.amount = getAmount(m.group(0)!!)
                 smsDetail.tag = sharedPreferences.getString(id, "")
+                smsDetail.balance = getBalance(body)
                 smsList.add(smsDetail)
             }
         } while (smsInboxCursor.moveToNext())
