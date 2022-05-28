@@ -3,8 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     tools:context=".view.activity.MainActivity">
 
+    <HorizontalScrollView
+        android:id="@+id/hsv"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
     <LinearLayout
         android:id="@+id/linearLayout"
         android:layout_width="match_parent"
@@ -36,13 +41,19 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/tag" />
-    </LinearLayout>
 
+        <Button
+            android:id="@+id/btn_balance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/balance" />
+    </LinearLayout>
+    </HorizontalScrollView>
     <EditText
         android:id="@+id/et_search"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/linearLayout"
+        android:layout_below="@+id/hsv"
         android:layout_margin="5dp"
         android:drawableStart="@drawable/ic_baseline_search"
         android:hint="@string/enter_tag_name"

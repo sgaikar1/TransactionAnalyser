@@ -26,6 +26,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import dev.ujjwal.transactionalsmsanalyzer.R
+import dev.ujjwal.transactionalsmsanalyzer.model.AccountDetails
 import dev.ujjwal.transactionalsmsanalyzer.model.SMSDetail
 import dev.ujjwal.transactionalsmsanalyzer.model.smsList
 import dev.ujjwal.transactionalsmsanalyzer.util.getAmount
@@ -33,6 +34,8 @@ import dev.ujjwal.transactionalsmsanalyzer.util.getCreditStatus
 import dev.ujjwal.transactionalsmsanalyzer.util.gotoChatActivity
 import dev.ujjwal.transactionalsmsanalyzer.view.adapter.SmsListAdapter
 import kotlinx.android.synthetic.main.activity_main.*
+import org.json.JSONObject
+import java.text.SimpleDateFormat
 import java.util.*
 import java.util.regex.Pattern
 
@@ -61,7 +64,7 @@ class MainActivity : AppCompatActivity() {
 
     )
 
-    fun getBalance(msg: String):String {
+    fun getBalance(msg: String): String {
         if (msg.isNullOrEmpty()) {
             return ""
         }
@@ -79,7 +82,7 @@ class MainActivity : AppCompatActivity() {
             return@takeWhile true;
         }
 
-        if(indexOfKeyword<0){
+        if (indexOfKeyword < 0) {
             return ""
         }
         // found the index of keyword, moving on to finding 'rs.' occuring after index_of_keyword
@@ -112,7 +115,6 @@ class MainActivity : AppCompatActivity() {
 
         return balance;
     }
-
 
 
     fun processMessage(msg: String): String {
@@ -152,6 +154,71 @@ class MainActivity : AppCompatActivity() {
         message.split(' ');
         // remove '' from array
         return message;
+    }
+
+    fun getAccount(msg: String): JSONObject {
+        val jsonObject = JSONObject()
+        if (msg.isNullOrEmpty()) {
+            return jsonObject
+        }
+
+        val message = processMessage(msg).split(' ');
+
+        var accountIndex = -1;
+
+        for ((index, word) in message.withIndex()) {
+            if (word.equals("ac", true)) {
+                if (index + 1 < message.size) {
+                    val accountNo = message[index + 1].trim();
+
+                    if (accountNo.isNullOrEmpty()) {
+                        // continue searching for a valid account number
+                        continue;
+                    } else {
+                        accountIndex = index;
+                        jsonObject.put("type", "account")
+                        jsonObject.put("no", accountNo)
+                        jsonObject.put("msg", message)
+                        return jsonObject;
+                    }
+                } else {
+                    // continue searching for a valid account number
+                    continue;
+                }
+            }
+        }
+
+        // No occurence of the word "ac". Check for "card"
+        if (accountIndex == -1) {
+            return getCard(message);
+        }
+        return jsonObject
+    }
+
+
+    fun getCard(message: List<String>): JSONObject {
+        val jsonObject = JSONObject()
+        if (message.isNullOrEmpty()) {
+            return jsonObject
+        }
+
+        val cardIndex = message.indexOf("card");
+
+        // Search for "card" and if not found return empty obj
+        return if (cardIndex != -1) {
+            // If the data is false positive
+            // return empty obj
+            // Else return the card info
+            if (message[cardIndex + 1].isNullOrEmpty()) {
+                jsonObject
+            } else {
+                jsonObject.put("type", "card")
+                jsonObject.put("no", message[cardIndex + 1])
+                jsonObject
+            }
+        } else {
+            jsonObject;
+        }
     }
 
     private fun extractBalance(index: Int, message: String, length: Int): String {
@@ -234,7 +301,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showNotification(){
+    private fun showNotification() {
         // Create an explicit intent for an Activity in your app
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -291,6 +358,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    val accountInfo: HashMap<String, AccountDetails> = HashMap()
     private fun refreshSmsInbox() {
         val contentResolver = contentResolver
         val smsInboxCursor: Cursor? = contentResolver.query(Uri.parse("content://sms/inbox"), null, null, null, null)
@@ -302,17 +370,53 @@ class MainActivity : AppCompatActivity() {
         smsList.clear()
         do {
             val id = smsInboxCursor.getString(indexId).trimIndent()
-            val date = smsInboxCursor.getString(indexDate).trimIndent()
+            val date = smsInboxCursor.getLong(indexDate)
             val sender = smsInboxCursor.getString(indexAddress).trimIndent()
             val body = smsInboxCursor.getString(indexBody).trimIndent()
-
-            val isValidTransaction = body.contains("credited") || body.contains("received") || body.contains("debited") || body.contains("withdrawn")
+            val isValidTransaction =
+                body.contains("credited") || body.contains("received") || body.contains("debited") || body.contains("withdrawn") || body.toLowerCase().contains("available balance")
             val regEx = Pattern.compile("(?i)(?:(?:RS|INR|MRP)\\.?\\s?)(\\d+(:?\\,\\d+)?(\\,\\d+)?(\\.\\d{1,2})?)")
             val m = regEx.matcher(body)
             if (isValidTransaction && m.find()) {
+                if (!getBalance(body).isNullOrEmpty()) {
+                    if (getAccount(body).has("no")) {
+                        val account = getAccount(body)
+                        val accountNo = account.get("no")
+                        val accountType = account.get("type")
+                        val dateVal = Date(date)
+                        val format = SimpleDateFormat("dd/MM/yy hh:mm:ss")
+                        val dateText = format.format(dateVal)
+
+                        if (accountInfo.containsKey(accountNo)) {
+                            if (Date(date).after(Date(accountInfo[accountNo]?.date.toString().toLong()))) {
+                                val accountDetails =
+                                    AccountDetails(
+                                        accountNo.toString(),
+                                        getBalance(body),
+                                        date,
+                                        dateText,
+                                        accountInfo[accountNo]?.accountType ?: "",
+                                        accountInfo[accountNo]?.bank ?: ""
+                                    )
+                                accountInfo[accountNo.toString()] = accountDetails
+                            }
+                        } else {
+                            val accountDetails =
+                                AccountDetails(
+                                    accountNo.toString(),
+                                    getBalance(body),
+                                    date,
+                                    dateText,
+                                    accountType.toString(),
+                                    sender
+                                )
+                            accountInfo[accountNo.toString()] = accountDetails
+                        }
+                    }
+                }
                 val smsDetail = SMSDetail()
                 smsDetail._id = id
-                smsDetail.date = date
+                smsDetail.date = date.toString()
                 smsDetail.sender = sender
                 smsDetail.body = body
                 smsDetail.isCredited = getCreditStatus(body)
@@ -323,6 +427,10 @@ class MainActivity : AppCompatActivity() {
             }
         } while (smsInboxCursor.moveToNext())
         smsListAdapter.updateSms(smsList)
+        accountInfo.map {
+            Log.e("Total Accounts", it.key + ":" + it.value)
+        }
+
     }
 
     private fun filter(text: String) {
